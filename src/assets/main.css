@@ -1,0 +1,12 @@
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+html, body, #app {
+    margin: 0 auto;
+}
+
+p {
+    margin: 0;
+}
