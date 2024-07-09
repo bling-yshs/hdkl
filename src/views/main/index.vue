@@ -53,7 +53,8 @@
       />
 
       <port-mapping v-model:port-mapping="docker.portMapping"></port-mapping>
-
+      
+      <env-settings v-model:env-settings="docker.envSettings"></env-settings>
       <a-flex gap="small" vertical>
         <p>运行命令</p>
         <a-input v-model:value="commandText"></a-input>
@@ -90,6 +91,8 @@ import { writeText } from '@tauri-apps/api/clipboard'
 import DataMapping from '@/components/data-mapping.vue'
 import PortMapping from '@/components/port-mapping.vue'
 import type { IPortMapping } from '@/interface/IPortMapping'
+import EnvSettings from '@/components/env-settings.vue'
+import type { IEnvSettings } from '@/interface/IEnvSettings'
 
 onMounted(async () => {
   // 先检查是否有Docker有没有在运行
@@ -150,7 +153,14 @@ const dockerCommand = computed(() => {
       p += `-p ${portMapping[i].localPort}:${portMapping[i].containerPort}/${portMapping[i].type} `
     }
   }
-  return `docker run ${d} --restart=${docker.value.restart} ${p} ${v} --name=${docker.value.name} --net=${docker.value.network} ${docker.value.image} ${docker.value.command}`
+  let e = ''
+  let envSettings = docker.value.envSettings
+  for (let i = 0; i < envSettings.length; i++) {
+    if (envSettings[i].key !== '' && envSettings[i].value !== '') {
+      e += `-e ${envSettings[i].key}=${envSettings[i].value} `
+    }
+  }
+  return `docker run ${d} --restart=${docker.value.restart} ${e} ${p} ${v} --name=${docker.value.name} --net=${docker.value.network} ${docker.value.image} ${docker.value.command}`
 })
 
 async function copyCommand() {
@@ -206,6 +216,7 @@ const imagesState: Ref<{
 })
 
 const docker: Ref<{
+  envSettings: Array<IEnvSettings>
   portMapping: Array<IPortMapping>
   containerPath: Array<string>
   localPath: Array<string>
@@ -216,6 +227,7 @@ const docker: Ref<{
   command: string
   restart: string
 }> = ref({
+  envSettings: [],
   portMapping: [],
   containerPath: [],
   localPath: [],
