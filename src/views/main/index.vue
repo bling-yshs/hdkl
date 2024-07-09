@@ -57,7 +57,7 @@
       <env-settings v-model:env-settings="docker.envSettings"></env-settings>
       <a-flex gap="small" vertical>
         <p>运行命令</p>
-        <a-input v-model:value="commandText"></a-input>
+        <a-input allow-clear v-model:value="commandText"></a-input>
       </a-flex>
 
       <a-flex gap="small" vertical>
