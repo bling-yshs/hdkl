@@ -5,7 +5,7 @@
         <p>名称</p>
         <a-input v-model:value="docker.name" placeholder="请输入名称"></a-input>
       </a-flex>
-
+      
       <a-flex gap="small" vertical>
         <p>镜像</p>
         <a-select
@@ -23,7 +23,7 @@
           </template>
         </a-select>
       </a-flex>
-
+      
       <a-flex gap="small" vertical>
         <p>网络</p>
         <a-select
@@ -41,17 +41,17 @@
           </template>
         </a-select>
       </a-flex>
-
+      
       <a-flex gap="small">
         <a-checkbox v-model:checked="docker.runBackGround"></a-checkbox>
         <p>后台运行</p>
       </a-flex>
-
+      
       <data-mapping
         v-model:localPath="docker.localPath"
         v-model:container-path="docker.containerPath"
       />
-
+      
       <port-mapping v-model:port-mapping="docker.portMapping"></port-mapping>
       
       <env-settings v-model:env-settings="docker.envSettings"></env-settings>
@@ -59,16 +59,16 @@
         <p>运行命令</p>
         <a-input allow-clear v-model:value="commandText"></a-input>
       </a-flex>
-
+      
       <a-flex gap="small" vertical>
         <p>重启规则</p>
         <a-radio-group v-model:value="docker.restart" :options="restartOptions" />
       </a-flex>
-
+      
       <a-flex justify="center">
         <p>{{ dockerCommand }}</p>
       </a-flex>
-
+      
       <a-flex justify="center">
         <a-dropdown placement="bottomLeft">
           <a-button type="primary" @click="copyCommand">复制</a-button>
@@ -131,8 +131,12 @@ async function runCommand() {
     new Command('ps', ['docker', 'rm', '-f', docker.value.name]).execute()
   }
   command = new Command('ps', [dockerCommand.value])
-  await command.spawn()
-  message.success(`成功运行容器 ${docker.value.name}`)
+  let runResult = await command.execute()
+  if (runResult.stderr !== '') {
+    message.error(runResult.stderr)
+  } else {
+    message.success('容器已成功启动')
+  }
 }
 
 const dockerCommand = computed(() => {
@@ -143,7 +147,7 @@ const dockerCommand = computed(() => {
   let v = ''
   for (let i = 0; i < docker.value.localPath.length; i++) {
     if (docker.value.localPath[i] !== '' && docker.value.containerPath[i] !== '') {
-      v += `-v "${docker.value.localPath[i]}":"${docker.value.containerPath[i]}" `
+      v += `-v "${docker.value.localPath[i]}:${docker.value.containerPath[i]}" `
     }
   }
   let p = ''
@@ -179,7 +183,6 @@ const networkState: Ref<{
 })
 
 async function getDockerNetworkList() {
-  console.log('getDockerNetworkList')
   networkState.value.fetching = true
   let command = new Command('ps', ['docker', 'network', 'ls'])
   let result = await command.execute()
