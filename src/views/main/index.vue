@@ -3,7 +3,12 @@
     <a-flex gap="middle" vertical>
       <a-flex gap="small" vertical>
         <p>名称</p>
-        <a-input v-model:value="docker.name" placeholder="请输入名称"></a-input>
+        <a-auto-complete
+          v-model:value="docker.name"
+          :options="getDockerNameOptions"
+          style="width: 100%"
+          placeholder="请输入名称"
+        />
       </a-flex>
       
       <a-flex gap="small" vertical>
@@ -57,7 +62,11 @@
       <env-settings v-model:env-settings="docker.envSettings"></env-settings>
       <a-flex gap="small" vertical>
         <p>运行命令</p>
-        <a-input allow-clear v-model:value="commandText"></a-input>
+        <a-auto-complete
+          v-model:value="commandText"
+          :options="[{value: 'tail -f /dev/null', text: 'tail -f /dev/null'}]"
+          style="width: 100%"
+        />
       </a-flex>
       
       <a-flex gap="small" vertical>
@@ -105,9 +114,19 @@ onMounted(async () => {
   }
 })
 
+// 计算器
+const getDockerNameOptions = computed(() => {
+  let first = docker.value.network
+  // last 需要分割/号，取最后一个，再分割:号，取第一个
+  let last = docker.value.image?.split('/').pop()?.split(':').shift()
+  let secondOption = `${first}-${last}`
+  let list = [{value: last, text: last},{ value: secondOption, text: secondOption }]
+  return list
+})
+
 const restartOptions = ['no', 'on-failure', 'always', 'unless-stopped']
 
-const commandText = ref('tail -f /dev/null')
+const commandText = ref('')
 
 async function testFn() {
   let data = docker.value.portMapping
