@@ -129,6 +129,8 @@ async function runCommand() {
   if (strings.length > 2) {
     message.info('正在删除已存在的同名容器')
     new Command('ps', ['docker', 'rm', '-f', docker.value.name]).execute()
+    // 稍微等待1秒
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   command = new Command('ps', [dockerCommand.value])
   let runResult = await command.execute()
