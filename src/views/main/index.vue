@@ -259,7 +259,7 @@ const docker: Ref<{
   image: '',
   network: networkState.value.value,
   runBackGround: true,
-  command: 'tail -f /dev/null',
+  command: '',
   restart: 'unless-stopped'
 })
 
