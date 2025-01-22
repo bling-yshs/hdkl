@@ -64,7 +64,7 @@
         <p>运行命令</p>
         <a-auto-complete
           v-model:value="commandText"
-          :options="[{value: 'tail -f /dev/null', text: 'tail -f /dev/null'}]"
+          :options="[{value: 'tail -f /dev/null', text: 'tail -f /dev/null'},{value: 'sleep infinity',text: 'sleep infinity'}]"
           style="width: 100%"
         />
       </a-flex>
