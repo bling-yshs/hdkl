@@ -97,11 +97,14 @@ import { Command } from '@tauri-apps/api/shell'
 import { computed, onMounted, type Ref, ref, watch } from 'vue'
 import { message, type SelectProps } from 'ant-design-vue'
 import { writeText } from '@tauri-apps/api/clipboard'
+import { writeTextFile } from '@tauri-apps/api/fs'
 import DataMapping from '@/components/data-mapping.vue'
 import PortMapping from '@/components/port-mapping.vue'
 import type { IPortMapping } from '@/interface/IPortMapping'
 import EnvSettings from '@/components/env-settings.vue'
 import type { IEnvSettings } from '@/interface/IEnvSettings'
+import { path } from '@tauri-apps/api'
+import { appCacheDir, appDataDir } from '@tauri-apps/api/path'
 
 onMounted(async () => {
   // 先检查是否有Docker有没有在运行
@@ -120,7 +123,7 @@ const getDockerNameOptions = computed(() => {
   // last 需要分割/号，取最后一个，再分割:号，取第一个
   let last = docker.value.image?.split('/').pop()?.split(':').shift()
   let secondOption = `${first}-${last}`
-  let list = [{value: last, text: last},{ value: secondOption, text: secondOption }]
+  let list = [{ value: last, text: last }, { value: secondOption, text: secondOption }]
   return list
 })
 
@@ -129,9 +132,7 @@ const restartOptions = ['no', 'on-failure', 'always', 'unless-stopped']
 const commandText = ref('')
 
 async function testFn() {
-  let data = docker.value.portMapping
-  console.log(data)
-  message.info(JSON.stringify(data))
+  message.info(JSON.stringify(await appDataDir()))
 }
 
 async function runCommand() {
@@ -151,7 +152,10 @@ async function runCommand() {
     // 稍微等待1秒
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
-  command = new Command('ps', [dockerCommand.value])
+  
+  // 构建实际执行的命令，将环境变量转换为env-file格式
+  let execCommand = await getExecutableDockerCommand()
+  command = new Command('ps', [execCommand])
   let runResult = await command.execute()
   if (runResult.stderr !== '') {
     message.error(runResult.stderr)
@@ -191,6 +195,63 @@ const dockerCommand = computed(() => {
 async function copyCommand() {
   await writeText(dockerCommand.value)
   message.success('已成功复制到剪贴板')
+}
+
+// 获取用于实际执行的Docker命令，将环境变量转换为env-file格式
+async function getExecutableDockerCommand() {
+  let d = ''
+  if (docker.value.runBackGround) {
+    d = '-d'
+  }
+  let v = ''
+  for (let i = 0; i < docker.value.localPath.length; i++) {
+    if (docker.value.localPath[i] !== '' && docker.value.containerPath[i] !== '') {
+      v += `-v "${docker.value.localPath[i]}:${docker.value.containerPath[i]}" `
+    }
+  }
+  let p = ''
+  let portMapping = docker.value.portMapping
+  for (let i = 0; i < portMapping.length; i++) {
+    if (portMapping[i].localPort !== '' && portMapping[i].containerPort !== '') {
+      p += `-p ${portMapping[i].localPort}:${portMapping[i].containerPort}/${portMapping[i].type} `
+    }
+  }
+  
+  // 处理环境变量 - 如果有环境变量，创建临时env文件
+  let e = ''
+  let envSettings = docker.value.envSettings
+  if (envSettings.length > 0) {
+    // 创建一个临时的env文件名
+    const tempEnvFile = await path.join(await appCacheDir(), `${docker.value.name}-${new Date().getTime()}.env`)
+    
+    // 创建env文件内容
+    let envFileContent = ''
+    for (let i = 0; i < envSettings.length; i++) {
+      if (envSettings[i].key !== '' && envSettings[i].value !== '') {
+        envFileContent += `${envSettings[i].key}=${envSettings[i].value}\n`
+      }
+    }
+    
+    // 使用Tauri的文件系统API写入临时env文件
+    try {
+      await writeTextFile(tempEnvFile, envFileContent)
+      // 使用env-file参数替代多个-e参数
+      e = `--env-file=${tempEnvFile} `
+    } catch (error) {
+      console.error('创建环境变量文件失败:', error)
+      message.error('创建环境变量文件失败，将使用-e参数')
+      
+      // 如果创建文件失败，回退到使用-e参数
+      e = ''
+      for (let i = 0; i < envSettings.length; i++) {
+        if (envSettings[i].key !== '' && envSettings[i].value !== '') {
+          e += `-e ${envSettings[i].key}=${envSettings[i].value} `
+        }
+      }
+    }
+  }
+  
+  return `docker run ${d} --restart=${docker.value.restart} ${e} ${p} ${v} --name=${docker.value.name} --net=${docker.value.network} ${docker.value.image} ${docker.value.command}`
 }
 
 const networkState: Ref<{
