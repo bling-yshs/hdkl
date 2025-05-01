@@ -90,21 +90,36 @@
       </a-flex>
       <a-button type="primary" @click="testFn">测试</a-button>
     </a-flex>
+    
+    <!-- 引入历史记录组件 -->
+    <history-records @load-record="loadHistoryRecord" />
   </div>
 </template>
 <script setup lang="ts">
 import { Command } from '@tauri-apps/api/shell'
 import { computed, onMounted, type Ref, ref, watch } from 'vue'
 import { message, type SelectProps } from 'ant-design-vue'
+import HistoryRecords from '@/components/history-records.vue'
+import { type DockerConfig, useHistoryStore } from '@/pinia/historyStore'
 import { writeText } from '@tauri-apps/api/clipboard'
 import { writeTextFile } from '@tauri-apps/api/fs'
 import DataMapping from '@/components/data-mapping.vue'
 import PortMapping from '@/components/port-mapping.vue'
-import type { IPortMapping } from '@/interface/IPortMapping'
 import EnvSettings from '@/components/env-settings.vue'
-import type { IEnvSettings } from '@/interface/IEnvSettings'
 import { path } from '@tauri-apps/api'
 import { appCacheDir, appDataDir } from '@tauri-apps/api/path'
+
+// 使用Pinia历史记录store
+const historyStore = useHistoryStore()
+
+// 加载历史记录项
+function loadHistoryRecord(record: DockerConfig) {
+  docker.value = { ...record }
+  commandText.value = record.command || ''
+  imagesState.value.value = record.image
+  networkState.value.value = record.network
+  message.success('已加载历史配置')
+}
 
 onMounted(async () => {
   // 先检查是否有Docker有没有在运行
@@ -132,7 +147,9 @@ const restartOptions = ['no', 'on-failure', 'always', 'unless-stopped']
 const commandText = ref('')
 
 async function testFn() {
-  message.info(JSON.stringify(await appDataDir()))
+  let value = await appDataDir()
+  let b = value + '2333'
+  message.info(JSON.stringify(b))
 }
 
 async function runCommand() {
@@ -141,6 +158,9 @@ async function runCommand() {
     message.error('请指定名称和镜像')
     return
   }
+  
+  // 保存到历史记录
+  historyStore.saveToHistory(docker.value)
   // 如果存在同名容器，先删除
   let command = new Command('ps', ['docker', 'ps', '-a', '--filter', `name=${docker.value.name}`])
   let result = await command.execute()
@@ -300,18 +320,7 @@ const imagesState: Ref<{
   fetching: false
 })
 
-const docker: Ref<{
-  envSettings: Array<IEnvSettings>
-  portMapping: Array<IPortMapping>
-  containerPath: Array<string>
-  localPath: Array<string>
-  name: string
-  image: string | undefined
-  network: string
-  runBackGround: boolean
-  command: string
-  restart: string
-}> = ref({
+const docker: Ref<DockerConfig> = ref({
   envSettings: [],
   portMapping: [],
   containerPath: [],
