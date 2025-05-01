@@ -64,7 +64,7 @@
         <p>运行命令</p>
         <a-auto-complete
           v-model:value="commandText"
-          :options="[{value: 'sleep infinity',text: 'sleep infinity'}]"
+          :options="[{value:'sleep infinity',text:'sleep infinity'}]"
           style="width: 100%"
         />
       </a-flex>
@@ -96,18 +96,18 @@
   </div>
 </template>
 <script setup lang="ts">
-import { Command } from '@tauri-apps/api/shell'
-import { computed, onMounted, type Ref, ref, watch } from 'vue'
-import { message, type SelectProps } from 'ant-design-vue'
+import DataMapping from '@/components/data-mapping.vue'
+import EnvSettings from '@/components/env-settings.vue'
 import HistoryRecords from '@/components/history-records.vue'
+import PortMapping from '@/components/port-mapping.vue'
 import { type DockerConfig, useHistoryStore } from '@/pinia/historyStore'
+import { path } from '@tauri-apps/api'
 import { writeText } from '@tauri-apps/api/clipboard'
 import { writeTextFile } from '@tauri-apps/api/fs'
-import DataMapping from '@/components/data-mapping.vue'
-import PortMapping from '@/components/port-mapping.vue'
-import EnvSettings from '@/components/env-settings.vue'
-import { path } from '@tauri-apps/api'
 import { appCacheDir, appDataDir } from '@tauri-apps/api/path'
+import { Command } from '@tauri-apps/api/shell'
+import { type SelectProps, message } from 'ant-design-vue'
+import { type Ref, computed, onMounted, ref, watch } from 'vue'
 
 // 使用Pinia历史记录store
 const historyStore = useHistoryStore()
@@ -138,7 +138,10 @@ const getDockerNameOptions = computed(() => {
   // last 需要分割/号，取最后一个，再分割:号，取第一个
   let last = docker.value.image?.split('/').pop()?.split(':').shift()
   let secondOption = `${first}-${last}`
-  let list = [{ value: last, text: last }, { value: secondOption, text: secondOption }]
+  let list = [
+    { value: last, text: last },
+    { value: secondOption, text: secondOption },
+  ]
   return list
 })
 
@@ -148,7 +151,7 @@ const commandText = ref('')
 
 async function testFn() {
   let value = await appDataDir()
-  let b = value + '2333'
+  let b = `${value}2333`
   message.info(JSON.stringify(b))
 }
 
@@ -158,11 +161,17 @@ async function runCommand() {
     message.error('请指定名称和镜像')
     return
   }
-  
+
   // 保存到历史记录
   historyStore.saveToHistory(docker.value)
   // 如果存在同名容器，先删除
-  let command = new Command('ps', ['docker', 'ps', '-a', '--filter', `name=${docker.value.name}`])
+  let command = new Command('ps', [
+    'docker',
+    'ps',
+    '-a',
+    '--filter',
+    `name=${docker.value.name}`,
+  ])
   let result = await command.execute()
   let text = result.stdout
   let strings = text.split('\n')
@@ -172,7 +181,7 @@ async function runCommand() {
     // 稍微等待1秒
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
-  
+
   // 构建实际执行的命令，将环境变量转换为env-file格式
   let execCommand = await getExecutableDockerCommand()
   command = new Command('ps', [execCommand])
@@ -191,14 +200,20 @@ const dockerCommand = computed(() => {
   }
   let v = ''
   for (let i = 0; i < docker.value.localPath.length; i++) {
-    if (docker.value.localPath[i] !== '' && docker.value.containerPath[i] !== '') {
+    if (
+      docker.value.localPath[i] !== '' &&
+      docker.value.containerPath[i] !== ''
+    ) {
       v += `-v "${docker.value.localPath[i]}:${docker.value.containerPath[i]}" `
     }
   }
   let p = ''
   let portMapping = docker.value.portMapping
   for (let i = 0; i < portMapping.length; i++) {
-    if (portMapping[i].localPort !== '' && portMapping[i].containerPort !== '') {
+    if (
+      portMapping[i].localPort !== '' &&
+      portMapping[i].containerPort !== ''
+    ) {
       p += `-p ${portMapping[i].localPort}:${portMapping[i].containerPort}/${portMapping[i].type} `
     }
   }
@@ -225,25 +240,34 @@ async function getExecutableDockerCommand() {
   }
   let v = ''
   for (let i = 0; i < docker.value.localPath.length; i++) {
-    if (docker.value.localPath[i] !== '' && docker.value.containerPath[i] !== '') {
+    if (
+      docker.value.localPath[i] !== '' &&
+      docker.value.containerPath[i] !== ''
+    ) {
       v += `-v "${docker.value.localPath[i]}:${docker.value.containerPath[i]}" `
     }
   }
   let p = ''
   let portMapping = docker.value.portMapping
   for (let i = 0; i < portMapping.length; i++) {
-    if (portMapping[i].localPort !== '' && portMapping[i].containerPort !== '') {
+    if (
+      portMapping[i].localPort !== '' &&
+      portMapping[i].containerPort !== ''
+    ) {
       p += `-p ${portMapping[i].localPort}:${portMapping[i].containerPort}/${portMapping[i].type} `
     }
   }
-  
+
   // 处理环境变量 - 如果有环境变量，创建临时env文件
   let e = ''
   let envSettings = docker.value.envSettings
   if (envSettings.length > 0) {
     // 创建一个临时的env文件名
-    const tempEnvFile = await path.join(await appCacheDir(), `${docker.value.name}-${new Date().getTime()}.env`)
-    
+    const tempEnvFile = await path.join(
+      await appCacheDir(),
+      `${docker.value.name}-${new Date().getTime()}.env`,
+    )
+
     // 创建env文件内容
     let envFileContent = ''
     for (let i = 0; i < envSettings.length; i++) {
@@ -251,7 +275,7 @@ async function getExecutableDockerCommand() {
         envFileContent += `${envSettings[i].key}=${envSettings[i].value}\n`
       }
     }
-    
+
     // 使用Tauri的文件系统API写入临时env文件
     try {
       await writeTextFile(tempEnvFile, envFileContent)
@@ -260,7 +284,7 @@ async function getExecutableDockerCommand() {
     } catch (error) {
       console.error('创建环境变量文件失败:', error)
       message.error('创建环境变量文件失败，将使用-e参数')
-      
+
       // 如果创建文件失败，回退到使用-e参数
       e = ''
       for (let i = 0; i < envSettings.length; i++) {
@@ -270,7 +294,7 @@ async function getExecutableDockerCommand() {
       }
     }
   }
-  
+
   return `docker run ${d} --restart=${docker.value.restart} ${e} ${p} ${v} --name=${docker.value.name} --net=${docker.value.network} ${docker.value.image} ${docker.value.command}`
 }
 
@@ -281,7 +305,7 @@ const networkState: Ref<{
 }> = ref({
   data: [],
   value: 'bridge',
-  fetching: false
+  fetching: false,
 })
 
 async function getDockerNetworkList() {
@@ -303,7 +327,7 @@ async function getDockerNetworkList() {
     item = item.splice(0, 2)
     vec.push({
       value: `${item[1]}`,
-      label: `${item[1]}`
+      label: `${item[1]}`,
     })
   })
   networkState.value.data = vec
@@ -317,7 +341,7 @@ const imagesState: Ref<{
 }> = ref({
   data: [],
   value: undefined,
-  fetching: false
+  fetching: false,
 })
 
 const docker: Ref<DockerConfig> = ref({
@@ -330,7 +354,7 @@ const docker: Ref<DockerConfig> = ref({
   network: networkState.value.value,
   runBackGround: true,
   command: '',
-  restart: 'unless-stopped'
+  restart: 'unless-stopped',
 })
 
 watch(imagesState.value, () => {
@@ -348,7 +372,10 @@ async function getDockerImageList() {
   // 设置获取状态为正在获取
   imagesState.value.fetching = true
   // 创建一个新的命令，用于获取Docker镜像列表
-  let command = new Command('ps', 'docker images | Where-Object { $_ -notmatch "<none>" }')
+  let command = new Command(
+    'ps',
+    'docker images | Where-Object { $_ -notmatch "<none>" }',
+  )
   // 执行命令并等待结果
   let result = await command.execute()
   // 获取命令的标准输出，即Docker镜像列表
@@ -374,7 +401,7 @@ async function getDockerImageList() {
     // 将解析后的镜像信息添加到选项数组中
     vec.push({
       value: `${item[0]}:${item[1]}`,
-      label: `${item[0]}:${item[1]}`
+      label: `${item[0]}:${item[1]}`,
     })
   })
   // 将解析后的选项数组赋值给state的data属性
