@@ -29,6 +29,11 @@
             "name": "ps",
             "cmd": "powershell",
             "args": true
+          },
+          {
+            "name": "docker",
+            "cmd": "docker",
+            "args": true
           }
         ]
       },
